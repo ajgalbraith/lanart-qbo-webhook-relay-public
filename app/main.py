@@ -23,12 +23,12 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="qbo-webhook-relay", version="0.1.0")
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def index() -> dict[str, str]:
     return {"service": "qbo-webhook-relay", "health": f"{settings.app_base_url}/health"}
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health() -> dict[str, Any]:
     return {
         "ok": True,
