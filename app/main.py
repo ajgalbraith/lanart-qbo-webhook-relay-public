@@ -97,30 +97,26 @@ def _matches_customer(customer_name: str) -> bool:
 
 
 def build_notification_message(*, event: QuickBooksEvent, entity: dict[str, Any]) -> str:
-    customer_ref = entity.get("CustomerRef") or {}
-    customer_name = str(customer_ref.get("name") or "Unknown customer")
     doc_number = str(entity.get("DocNumber") or event.entity_id)
     total_amount = entity.get("TotalAmt")
-    txn_date = str(entity.get("TxnDate") or event.happened_at or "")
-    po_number = _extract_po(entity)
-    lines = _extract_lines(entity)
+    po_number = _extract_po(entity) or doc_number
+    primary_line = _extract_primary_line(entity)
 
-    parts = [
-        f"QuickBooks {event.entity_name} created for Costco",
-        f"Customer: {customer_name}",
-        f"Doc #: {doc_number}",
-    ]
-    if po_number:
-        parts.append(f"PO: {po_number}")
-    if txn_date:
-        parts.append(f"Date: {txn_date}")
+    order_type = event.entity_name.lower()
+    message = f"New order ({order_type}) from Costco"
     if total_amount is not None:
-        parts.append(f"Total: {total_amount}")
-    if lines:
-        parts.append("Lines: " + "; ".join(lines[:3]))
-    parts.append(f"Realm: {event.realm_id}")
-    parts.append(f"Entity ID: {event.entity_id}")
-    return "\n".join(parts)
+        message += f" for {_format_number(total_amount)}"
+    message += "."
+
+    if primary_line:
+        item_name, qty = primary_line
+        if qty is not None:
+            message += f" {_format_number(qty)} units of {item_name}"
+        else:
+            message += f" {item_name}"
+    if po_number:
+        message += f" PO#{po_number}"
+    return message
 
 
 def _extract_po(entity: dict[str, Any]) -> str:
@@ -131,20 +127,30 @@ def _extract_po(entity: dict[str, Any]) -> str:
     return ""
 
 
-def _extract_lines(entity: dict[str, Any]) -> list[str]:
-    rendered: list[str] = []
+def _extract_primary_line(entity: dict[str, Any]) -> tuple[str, Any | None] | None:
     for line in entity.get("Line", []) or []:
         if line.get("DetailType") != "SalesItemLineDetail":
             continue
         detail = line.get("SalesItemLineDetail") or {}
+        qty = detail.get("Qty")
+        if _is_non_positive(qty):
+            continue
         item_ref = detail.get("ItemRef") or {}
         item_name = str(item_ref.get("name") or line.get("Description") or "Item")
-        qty = detail.get("Qty")
-        amount = line.get("Amount")
-        bits = [item_name]
-        if qty is not None:
-            bits.append(f"qty {qty}")
-        if amount is not None:
-            bits.append(f"amount {amount}")
-        rendered.append(" | ".join(bits))
-    return rendered
+        return item_name, qty
+    return None
+
+
+def _is_non_positive(value: Any) -> bool:
+    if value is None:
+        return False
+    try:
+        return float(value) <= 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _format_number(value: Any) -> str:
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
