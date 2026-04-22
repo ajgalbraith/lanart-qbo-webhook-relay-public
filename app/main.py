@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .db import EventStore
+from .filters import matches_customer_name
 from .notifications import NotificationClient
 from .quickbooks import QuickBooksClient, QuickBooksEvent, verify_webhook_signature
 
@@ -37,6 +38,8 @@ def health() -> dict[str, Any]:
         "notification_channels": notifications.configured_channels(),
         "allowed_events": settings.qbo_allowed_events,
         "allowed_realms": settings.qbo_allowed_realm_ids,
+        "customer_match_terms": settings.customer_match_terms,
+        "customer_exclude_terms": settings.customer_exclude_terms,
     }
 
 
@@ -86,8 +89,11 @@ def process_event(event: QuickBooksEvent) -> None:
 
 
 def _matches_customer(customer_name: str) -> bool:
-    haystack = customer_name.upper()
-    return any(term.upper() in haystack for term in settings.customer_match_terms)
+    return matches_customer_name(
+        customer_name,
+        include_terms=settings.customer_match_terms,
+        exclude_terms=settings.customer_exclude_terms,
+    )
 
 
 def build_notification_message(*, event: QuickBooksEvent, entity: dict[str, Any]) -> str:

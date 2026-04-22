@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     qbo_allowed_realm_ids: list[str] = Field(default_factory=list)
     qbo_allowed_events: list[str] = Field(default_factory=lambda: ["estimate.created", "invoice.created"])
     customer_match_terms: list[str] = Field(default_factory=lambda: ["COSTCO"])
+    customer_exclude_terms: list[str] = Field(default_factory=lambda: ["COSTCO_WEB", "COSTCO WEB"])
 
     quickbooks_client_id: str = ""
     quickbooks_client_secret: str = ""
@@ -45,6 +46,7 @@ class Settings(BaseSettings):
         "qbo_allowed_realm_ids",
         "qbo_allowed_events",
         "customer_match_terms",
+        "customer_exclude_terms",
         "twilio_to_numbers",
         mode="before",
     )
