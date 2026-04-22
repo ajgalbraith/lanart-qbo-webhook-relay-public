@@ -31,7 +31,17 @@ class QuickBooksEvent:
 
     @property
     def normalized_type(self) -> str:
-        return f"{self.entity_name.lower()}.{self.action.lower()}"
+        return f"{self.entity_name.lower()}.{_normalize_action(self.action)}"
+
+
+def _normalize_action(action: str) -> str:
+    normalized = action.lower()
+    legacy_action_map = {
+        "create": "created",
+        "update": "updated",
+        "delete": "deleted",
+    }
+    return legacy_action_map.get(normalized, normalized)
 
 
 class QuickBooksClient:
